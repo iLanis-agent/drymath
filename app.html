@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DryMath - honest dehumidifier sizer</title>
+<style>
+  :root { --bg:#0b1216; --card:#12202a; --line:#1f3442; --ink:#ddeaf2; --dim:#8aa7b8; --acc:#5ec8d8; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--ink); font:15px/1.5 system-ui, sans-serif; padding:32px 18px 64px; }
+  .wrap { max-width:1060px; margin:0 auto; }
+  h1 { font-size:26px; letter-spacing:.5px; }
+  h1 span { color:var(--acc); }
+  .home { float:right; color:var(--dim); text-decoration:none; font-size:13px; margin-top:8px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px; margin-top:20px; }
+  .card h2 { font-size:15px; color:var(--dim); font-weight:600; text-transform:uppercase; letter-spacing:1px; margin-bottom:14px; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:160px; }
+  label { display:block; font-size:12px; color:var(--dim); margin-bottom:4px; }
+  input, select { width:100%; background:#0d1820; border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:9px 10px; font:inherit; }
+  .chk { display:flex; align-items:center; gap:8px; margin-top:24px; font-size:14px; color:var(--ink); }
+  .chk input { width:auto; }
+  button { background:var(--acc); color:#06222a; border:0; border-radius:9px; padding:10px 20px; font:600 15px system-ui; cursor:pointer; }
+  button.ghost { background:#0d1820; color:var(--acc); border:1px solid var(--line); padding:8px 14px; font-size:13px; }
+  .err { color:#ff8a80; font-size:14px; margin-top:10px; min-height:20px; }
+  .note { color:var(--dim); font-size:12.5px; margin-top:10px; }
+  .verdict { background:#0e2027; border:1px solid #1f4a58; border-radius:12px; padding:18px 20px; margin-top:20px; font-size:16px; line-height:1.6; display:none; }
+  .verdict b { color:var(--acc); }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-top:20px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .stat .v { font-size:22px; font-weight:700; }
+  .stat .k { color:var(--dim); font-size:12px; margin-top:4px; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="home" href="index.html">home</a>
+  <h1>Dry<span>Math</span></h1>
+
+  <div class="card">
+    <h2>The room</h2>
+    <div class="row">
+      <div><label>Area (m2)</label><input id="area" type="number" value="40" min="5" max="400"></div>
+      <div><label>Dampness</label><select id="cond"></select></div>
+      <div><label>Temperature (C)</label><input id="temp" type="number" value="18" min="0" max="35"></div>
+    </div>
+    <label class="chk"><input type="checkbox" id="laundry"> Laundry gets dried indoors here</label>
+    <div class="note">Pint ratings are measured in a warm lab. A compressor unit at 12 C keeps about 60% of its sticker - the colder the room, the bigger the rating you must buy.</div>
+  </div>
+
+  <div class="card">
+    <h2>Your humidity (optional)</h2>
+    <div class="row">
+      <div><label>Current relative humidity (%)</label><input id="rh" type="number" placeholder="leave blank to skip" min="10" max="100"></div>
+    </div>
+    <div class="note">Cheap hygrometers cost a few dollars. Above 60% sustained, mold moves in. 45-60% is the target.</div>
+  </div>
+
+  <div style="margin-top:20px; display:flex; gap:10px; flex-wrap:wrap;">
+    <button id="go">Size my unit</button>
+    <button class="ghost" id="preset1">cold wet basement</button>
+    <button class="ghost" id="preset2">warm damp flat + laundry</button>
+  </div>
+  <div class="err" id="err"></div>
+
+  <div class="verdict" id="verdict"></div>
+
+  <div class="stats hidden" id="statsWrap">
+    <div class="stat"><div class="v" id="sClass"></div><div class="k">pint class to buy</div></div>
+    <div class="stat"><div class="v" id="sNeed"></div><div class="k">lab-condition need</div></div>
+    <div class="stat"><div class="v" id="sDerate"></div><div class="k">capacity kept at your temp</div></div>
+    <div class="stat"><div class="v" id="sType"></div><div class="k">unit type</div></div>
+    <div class="stat"><div class="v" id="sLiters"></div><div class="k">liters per day</div></div>
+    <div class="stat"><div class="v" id="sRh"></div><div class="k">humidity verdict</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Why the sticker lies</h2>
+    <p style="font-size:14px;">
+      Dehumidifier pints are rated at <b style="color:var(--acc)">18.3 C and 60% RH</b> - a warm, humid lab.
+      Basements are cold, and a compressor's capacity collapses with temperature: about <b style="color:var(--acc)">three quarters at 14 C, half at 10 C</b>, and below that the coils spend their life defrosting, which is what desiccant units exist for.
+      Meanwhile mold does not wait for puddles: it needs only <b style="color:var(--acc)">60%+ sustained humidity</b>. The honest sequence is measure the RH, size for the coldest the room gets, then buy the class above the number, never the one on sale.
+    </p>
+  </div>
+</div>
+<script src="engine.js"></script>
+<script>
+(function(){
+  var sel = document.getElementById('cond');
+  DryMathEngine.CONDITIONS.forEach(function(c){
+    var o = document.createElement('option');
+    o.value = c.key; o.textContent = c.label;
+    sel.appendChild(o);
+  });
+  sel.value = 'very';
+
+  document.getElementById('preset1').addEventListener('click', function(){
+    document.getElementById('area').value = 90;
+    document.getElementById('cond').value = 'wet';
+    document.getElementById('temp').value = 12;
+    document.getElementById('rh').value = 72;
+    document.getElementById('laundry').checked = false;
+  });
+  document.getElementById('preset2').addEventListener('click', function(){
+    document.getElementById('area').value = 55;
+    document.getElementById('cond').value = 'very';
+    document.getElementById('temp').value = 21;
+    document.getElementById('rh').value = 66;
+    document.getElementById('laundry').checked = true;
+  });
+
+  document.getElementById('go').addEventListener('click', function(){
+    var errEl = document.getElementById('err'); errEl.textContent = '';
+    var r;
+    try {
+      r = DryMathEngine.analyze({
+        areaM2: document.getElementById('area').value,
+        condition: document.getElementById('cond').value,
+        tempC: document.getElementById('temp').value,
+        currentRh: document.getElementById('rh').value,
+        laundry: document.getElementById('laundry').checked
+      });
+    } catch(e){ errEl.textContent = e.message; return; }
+    document.getElementById('sClass').textContent = r.sizeClass + '-pint';
+    document.getElementById('sNeed').textContent = r.needPints + ' pints/day';
+    document.getElementById('sDerate').textContent = Math.round(r.tempFactor * 100) + '%';
+    document.getElementById('sType').textContent = r.type;
+    document.getElementById('sLiters').textContent = r.litersPerDay + ' L';
+    document.getElementById('sRh').textContent = r.rhBand || 'not measured';
+    document.getElementById('statsWrap').classList.remove('hidden');
+    var v = document.getElementById('verdict');
+    v.innerHTML = r.verdict.replace(/(\d+-pint class|\d+ pints\/day|\d+% RH|too dry|dry side of fine|comfort zone|mold risk|active mold territory|desiccant|undersized)/g, '<b>$1</b>');
+    v.style.display = 'block';
+  });
+})();
+</script>
+</body>
+</html>
